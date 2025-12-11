@@ -111,9 +111,12 @@ def forecast_rf(df, model, horizon):
 
 
 def forecast_prophet(df, horizon):
-    # If Prophet isn't installed, just skip this model
-    if not PROPHET_AVAILABLE:
-        return None
+    """
+    Prophet is disabled in this deployment to avoid errors.
+    We only use the Random Forest model for forecasts.
+    """
+    return None
+
 
     # Keep only the columns Prophet expects
     df_p = df.rename(columns={"date": "ds", "price": "y"})[["ds", "y"]].copy()
@@ -248,6 +251,7 @@ for t_name in tickers:
                 file_name=f"{t_name}_forecast.pdf",
                 mime="application/pdf",
             )
+
 
 
 
