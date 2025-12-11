@@ -47,8 +47,33 @@ TICKER_MAP = {
 def fetch_price_data(ticker, start, end):
     df = yf.download(ticker, start=start, end=end)
 
+    # If nothing came back, just return empty
     if df.empty:
-        return df
+        return pd.DataFrame(columns=["date", "price"])
+
+    # Handle different possible price column names from Yahoo Finance
+    possible_cols = ["Adj Close", "Adj_Close", "Close", "close"]
+
+    price_col = None
+    for col in possible_cols:
+        if col in df.columns:
+            price_col = col
+            break
+
+    # If no price column exists, return empty safely
+    if price_col is None:
+        return pd.DataFrame(columns=["date", "price"])
+
+    # Use only the found price column
+    df = df[[price_col]].rename(columns={price_col: "price"})
+    df.index = pd.to_datetime(df.index)
+
+    # Reset index to ensure there is always a date column
+    df = df.reset_index()
+    df.columns = ["date", "price"]
+
+    return df
+
 
     # Handle different possible price column names from Yahoo Finance
     possible_cols = ["Adj Close", "Adj_Close", "Close", "close"]
@@ -255,6 +280,7 @@ for t_name in tickers:
                 file_name=f"{t_name}_forecast.pdf",
                 mime="application/pdf",
             )
+
 
 
 
