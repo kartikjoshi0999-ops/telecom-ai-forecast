@@ -177,37 +177,59 @@ end = dt.date.today()
 
 tab1, tab2, tab3 = st.tabs(["📊 Forecasts", "📈 Signals", "📄 PDF"])
 
-
 for t_name in tickers:
     t = TICKER_MAP[t_name]
     df = fetch_price_data(t, start, end)
-    if df.empty:
-        st.error(f"No data for {t_name}")
+
+    # If no data or missing columns, handle gracefully and skip models
+    if df.empty or "date" not in df.columns or "price" not in df.columns:
+        with tab1:
+            st.subheader(f"{t_name} – Price")
+            st.warning("No price data available for this ticker.")
         continue
 
+    # ------------ Models & forecasts ------------
+    model = train_rf(df)
+    rf_fc = forecast_rf(df, model, horizon)
+    p_fc = forecast_prophet(df, horizon)
+    hist, hybrid = hybrid_model(df, rf_fc, p_fc)
+
+    # ------------ Tab 1: Forecasts ------------
     with tab1:
         st.subheader(f"{t_name} – Price")
-        st.plotly_chart(px.line(df, x="date", y="price"), use_container_width=True)
-
-        model = train_rf(df)
-        rf_fc = forecast_rf(df, model, horizon)
-        p_fc = forecast_prophet(df, horizon)
-        hist, hybrid = hybrid_model(df, rf_fc, p_fc)
+        fig_price = px.line(df, x="date", y="price", title=f"{t_name} – Price")
+        st.plotly_chart(fig_price, use_container_width=True)
 
         st.subheader("Hybrid Forecast")
-        st.plotly_chart(
-            px.line(hybrid, x="date", y=hybrid.columns[1:], title="Forecast"),
-            use_container_width=True
+        fig_hybrid = px.line(
+            hybrid,
+            x="date",
+            y=hybrid.columns[1:],  # all forecast columns except date
+            title="Forecast"
         )
+        st.plotly_chart(fig_hybrid, use_container_width=True)
 
+    # ------------ Tab 2: Signals ------------
     with tab2:
         sig = buy_sell(df)
         st.subheader(f"{t_name} – Trading Signals")
-        st.plotly_chart(px.line(sig, x="date", y=["price", "ma20", "ma50"]), use_container_width=True)
+        st.plotly_chart(
+            px.line(sig, x="date", y=["price", "ma20", "ma50"]),
+            use_container_width=True
+        )
         st.metric("Latest Signal", sig["signal"].iloc[-1])
 
+    # ------------ Tab 3: PDF report ------------
     with tab3:
+        st.subheader(f"{t_name} – PDF Report")
         if st.button(f"Download PDF for {t_name}"):
             pdf = generate_pdf(t_name, df, hybrid)
-            st.download_button("Download PDF", pdf, file_name="forecast.pdf", mime="application/pdf")
+            st.download_button(
+                "Download PDF",
+                pdf,
+                file_name=f"{t_name}_forecast.pdf",
+                mime="application/pdf",
+            )
+
+
 
