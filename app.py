@@ -111,14 +111,32 @@ def forecast_rf(df, model, horizon):
 
 
 def forecast_prophet(df, horizon):
+    # If Prophet isn't installed, just skip this model
     if not PROPHET_AVAILABLE:
         return None
-    df_p = df.rename(columns={"date": "ds", "price": "y"})
-    m = Prophet(daily_seasonality=True)
-    m.fit(df_p)
-    future = m.make_future_dataframe(periods=horizon)
-    fc = m.predict(future)
-    return fc.rename(columns={"ds": "date", "yhat": "prophet"})[["date", "prophet"]]
+
+    # Keep only the columns Prophet expects
+    df_p = df.rename(columns={"date": "ds", "price": "y"})[["ds", "y"]].copy()
+
+    # Ensure y is numeric and drop missing values
+    df_p["y"] = pd.to_numeric(df_p["y"], errors="coerce")
+    df_p = df_p.dropna(subset=["y"])
+
+    # If nothing left, skip Prophet
+    if df_p.empty:
+        return None
+
+    try:
+        m = Prophet(daily_seasonality=True)
+        m.fit(df_p)
+        future = m.make_future_dataframe(periods=horizon)
+        fc = m.predict(future)
+        fc = fc.rename(columns={"ds": "date", "yhat": "prophet"})
+        return fc[["date", "prophet"]]
+    except Exception:
+        # If Prophet fails for any reason, just skip it
+        return None
+
 
 
 def hybrid_model(df, rf_fc, p_fc):
@@ -230,6 +248,7 @@ for t_name in tickers:
                 file_name=f"{t_name}_forecast.pdf",
                 mime="application/pdf",
             )
+
 
 
 
