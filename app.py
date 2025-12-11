@@ -61,11 +61,15 @@ def fetch_price_data(ticker, start, end):
 
     if price_col is None:
         raise KeyError("Price column not found in Yahoo Finance data")
+df = df[[price_col]].rename(columns={price_col: "price"})
+df.index = pd.to_datetime(df.index)
 
-    df = df[[price_col]].rename(columns={price_col: "price"})
-    df.index = pd.to_datetime(df.index)
+# FIX: ensure index becomes a date column every time
+df = df.reset_index()
+df.columns = ["date", "price"]
 
-    return df.reset_index().rename(columns={"Date": "date"})
+return df
+
 
 
 
@@ -251,6 +255,7 @@ for t_name in tickers:
                 file_name=f"{t_name}_forecast.pdf",
                 mime="application/pdf",
             )
+
 
 
 
