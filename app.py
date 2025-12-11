@@ -43,15 +43,31 @@ TICKER_MAP = {
     "Rogers (RCI-B.TO)": "RCI-B.TO",
 }
 
-
 @st.cache_data(show_spinner=False)
 def fetch_price_data(ticker, start, end):
     df = yf.download(ticker, start=start, end=end)
+
     if df.empty:
         return df
-    df = df[["Adj Close"]].rename(columns={"Adj Close": "price"})
+
+    # Handle different possible price column names from Yahoo Finance
+    possible_cols = ["Adj Close", "Adj_Close", "Close", "close"]
+
+    price_col = None
+    for col in possible_cols:
+        if col in df.columns:
+            price_col = col
+            break
+
+    if price_col is None:
+        raise KeyError("Price column not found in Yahoo Finance data")
+
+    df = df[[price_col]].rename(columns={price_col: "price"})
     df.index = pd.to_datetime(df.index)
+
     return df.reset_index().rename(columns={"Date": "date"})
+
+
 
 
 def add_features(df):
@@ -194,3 +210,4 @@ for t_name in tickers:
         if st.button(f"Download PDF for {t_name}"):
             pdf = generate_pdf(t_name, df, hybrid)
             st.download_button("Download PDF", pdf, file_name="forecast.pdf", mime="application/pdf")
+
